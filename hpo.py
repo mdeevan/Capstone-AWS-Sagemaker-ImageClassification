@@ -68,7 +68,7 @@ def train(model, train_loader, criterion, optimizer):
     
     pass
     
-def net(num_classes = 100):
+def net(num_classes):
     '''
     TODO: Complete this function that initializes your model
           Remember to use a pretrained model
@@ -81,10 +81,12 @@ def net(num_classes = 100):
         params.requires_grad = False
 
     num_features = model.fc.in_features()
-    # num_classes = 100
 
     model.fc = nn.Sequential(
-        nn.Linear(num_features, num_classes)
+                   nn.ReLU(nn.Linear(num_features, 1024)),
+                   nn.ReLU(nn.Linear(1024        , 512)),
+                   nn.ReLU(nn.Linear(512         , 256)),
+                   nn.ReLU(nn.Linear(256         , num_classes)),
     )
 
     return model
@@ -98,13 +100,28 @@ def create_data_loaders(data, batch_size):
 
 def main(args):
 
-    
-    
     '''
     TODO: Initialize a model by calling the net function
     '''
-    model=net()
+    model=net(args.num_classes)
+
+    # net = models.__dict__[opt.model](pretrained=True)
+
+    if (args.gpu):
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    model.to(device)
     
+    print(f"Running on Device {device}")
+
+    logger.info(f'Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
+    logger.info(f'Data Paths: {args.data}')
+    
+    train_loader, test_loader, validation_loader=create_data_loaders(args.data, args.batch_size)
+
+
     '''
     TODO: Create your loss and optimizer
     '''
@@ -132,7 +149,16 @@ if __name__=='__main__':
     '''
     TODO: Specify all the hyperparameters you need to use to train your model.
     '''
-    
+    parser.add_argument('--data',       type=str,      default=os.environ['SM_CHANNEL_TRAINING'])
+    parser.add_argument('--model-dir',  type=str,      default=os.environ['SM_MODEL_DIR'])
+    parser.add_argument('--output-dir', type=str,      default=os.environ['SM_OUTPUT_DATA_DIR'])
+
+    parser.add_argument("--batch-size", type=int,      default=64,   metavar="N", help="input batch size for training (default: 64)")
+    parser.add_argument("--epoch",      type=int,      default=1,    metavar="N", help="number of epochs to train (default: 1)") 
+    parser.add_argument("--gpu",        type=str2bool, default=True, metavar="N", help="Train on GPU, (default = True)")
+    parser.add_argument("--lr",         type=float,    default=0.05, metavar="N", help="Learning rate (default = 0.5)")
+    parser.add_argument("--num_classes",type=int,      default=10,   metavar="N", help="Number of classes for classification (default = 10)")
+
     args=parser.parse_args()
     
     main(args)
