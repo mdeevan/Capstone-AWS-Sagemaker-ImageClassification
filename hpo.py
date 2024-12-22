@@ -20,33 +20,66 @@ def get_pretained_model_ResNet50():
     return model
 
 
-def test(model, test_loader):
+def test(model, test_dataloader, criterion, device=torch.device("cpu")):
     '''
     TODO: Complete this function that can take a model and a 
           testing data loader and will get the test accuray/loss of the model
           Remember to include any debugging/profiling hooks that you might need
     '''
-    pass
 
-def train(model, train_loader, valid_loader, criterion, optimizer, epochs=2, device=torch.device("cpu")):
+    model.eval()
+    with torch.no_grad():
+        test_running_loss = 0
+        accuracy_running = 0
+
+        for data, target in test_dataloader:
+            data   = data.to_device(device)
+            target = data.to_device(device)
+
+            pred = model(data)
+            loss = criterion(pred, target)
+            test_running_loss += loss.item()
+
+            prob = torch.exp(pred)
+            top_label, top_class = prob.topk(1, dim=1)
+
+            correct = top_class == target.view(*top_class.shape)
+            accuracy_running += torch.mean(correct.type(torch.FloatTensor)).item()
+
+        test_loss = test_running_loss / len(test_dataloader)
+        accuracy  = accuracy_running  / len(test_dataloader)
+
+        print("Test loss : {:.3f},\
+            accuracy : {:.3f} ".format(test_loss,
+                                        accuracy
+                                        ))
+
+
+
+def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epochs=2, device=torch.device("cpu")):
     '''
     TODO: Complete this function that can take a model and
           data loaders for training and will get train the model
           Remember to include any debugging/profiling hooks that you might need
     '''
 
+    train_loss = []
+    valid_loss = []
+    accuracy   = []
+    prev_accuracy = 0
 
     device = torch.device("cuda" if (torch.cuda.is_available() & gpu) else "cpu")
         
     for e in range(epochs):
 
-        running_loss = 0
-        correct = 0
+        train_running_loss = 0
+        valid_running_loss = 0
+        accuracy_running   = 0
         
         # hook.set_mode(smd.modes.TRAIN) # set debugging hook
 
         model.train()
-        for data, target in train_loader:
+        for data, target in train_dataloader:
             data   = data.to_device(device)
             target = target.to_device(device)
 
@@ -54,34 +87,63 @@ def train(model, train_loader, valid_loader, criterion, optimizer, epochs=2, dev
 
             pred = model(data)
             loss = criterion(pred, target)
-            running_loss += loss
+            train_running_loss += loss.item()
         
             loss.backward()
             optimizer.step()
 
-            pred = pred.argmax(dim=1, keepdim=True)
+            # pred = pred.argmax(dim=1, keepdim=True)
 
-            correct += pred.eq(target.view_as(pred)).sum().item()
+            # correct += pred.eq(target.view_as(pred)).sum().item()
 
-            total_loss = running_loss / len(train_loader.dataset)
-            accuracy = correct / len(train_loader.dataset)
+            # total_loss = running_loss / len(train_loader.dataset)
+            # accuracy = correct / len(train_loader.dataset)
 
-            print("epoch : {}, total loss : {}, accuracy :{}%".format(e, total_loss, accuracy))
+            # print("epoch : {}, total loss : {}, accuracy :{}%".format(e, total_loss, accuracy))
             
         model.eval()
         with torch.no_grad():
             valid_running_loss = 0
 
-            for data, target in valid_loader:
+            for data, target in valid_dataloader:
                 data   = data.to_device(device)
                 target = data.to_device(device)
 
                 pred = model(data)
                 loss = criterion(pred, target)
-                # valid_running_loss +=
+                valid_running_loss += loss.item()
+
+                prob = torch.exp(pred)
+                top_label, top_class = prob.topk(1, dim=1)
+
+                correct = top_class == target.view(*top_class.shape)
+                accuracy_running += torch.mean(correct.type(torch.FloatTensor)).item()
+
+        # training and evaluation loop completed
+
+        train_running_loss = train_running_loss / len(train_dataloader)
+        valid_running_loss = valid_running_loss / len(valid_dataloader)
+        accuracy_running   = accuracy_running   / len(valid_dataloader)
+
+
+        train_loss.append(train_running_loss)
+        valid_loss.append(valid_running_loss)
+        accuracy.append(accuracy_running)
 
     # pass
-    
+        print("epoch {} of {},\
+            training loss : {:.3f},\
+            validation loss : {:.3f},\
+            accuracy : {:.3f} ".format(epoch+1, epochs,
+                                            train_running_loss,
+                                            valid_running_loss,
+                                            accuracy_running
+                                            ))
+
+
+    # return of losses and accuracy for graph representation, if desired
+    return train_loss, valid_loss, accuracy
+
 def net(num_classes):
     '''
     TODO: Complete this function that initializes your model
@@ -180,7 +242,8 @@ def main(args):
     # loss_criterion = None
     # optimizer = None
 
-    loss_criterion = nn.CrossEntropyLoss() # using cross Entropy loss function
+    # loss_criterion = nn.CrossEntropyLoss() # using cross Entropy loss function
+    loss_criterion = nn.NLLLoss() # using negative log likelihood loss 
 
     optimizer = optim.Adam(model.fc.parameters(), lr=args.lr) #using adam optimizer
 
