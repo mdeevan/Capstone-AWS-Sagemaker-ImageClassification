@@ -9,9 +9,20 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 
-
-
 import argparse
+import logging
+# import smdebug.Pytorch as smd
+
+from smdebug import modes
+from smdebug.profiler.utils import str2bool
+from smdebug.pytorch import get_hook
+
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler(sys.stdout))
+
 
 def get_pretained_model_ResNet50():
     weights = models.ResNet50_Weights()
@@ -26,6 +37,9 @@ def test(model, test_dataloader, criterion, device=torch.device("cpu")):
           testing data loader and will get the test accuray/loss of the model
           Remember to include any debugging/profiling hooks that you might need
     '''
+
+    logger.info('HPO: model test starting')
+    hook.set_mode(smd.modes.EVAL) # assign the debugger hook
 
     model.eval()
     with torch.no_grad():
@@ -49,12 +63,13 @@ def test(model, test_dataloader, criterion, device=torch.device("cpu")):
         test_loss = test_running_loss / len(test_dataloader)
         accuracy  = accuracy_running  / len(test_dataloader)
 
-        print("Test loss : {:.3f},\
+        logger.info("HPO: Test loss : {:.3f},\
             accuracy : {:.3f} ".format(test_loss,
                                         accuracy
                                         ))
 
 
+        logger.info("HPO: model testing completed")
 
 def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epochs=2, device=torch.device("cpu")):
     '''
@@ -63,6 +78,8 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
           Remember to include any debugging/profiling hooks that you might need
     '''
 
+    hook = get_hook(create_if_not_exists=True)
+
     train_loss = []
     valid_loss = []
     accuracy   = []
@@ -70,6 +87,11 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
 
     device = torch.device("cuda" if (torch.cuda.is_available() & gpu) else "cpu")
         
+    logger.info('HPO: Training started on device {}'.format(device))
+
+    if hook:
+        hook.register_loss(optimizer)
+  
     for e in range(epochs):
 
         train_running_loss = 0
@@ -77,6 +99,9 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
         accuracy_running   = 0
         
         # hook.set_mode(smd.modes.TRAIN) # set debugging hook
+
+        if hook:
+            hook.set_mode(smd.modes.TRAIN) # assign the debugger hook
 
         model.train()
         for data, target in train_dataloader:
@@ -101,6 +126,9 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
 
             # print("epoch : {}, total loss : {}, accuracy :{}%".format(e, total_loss, accuracy))
             
+        if hook:
+            hook.set_mode(smd.modes.EVAL) # assign the debugger hook
+
         model.eval()
         with torch.no_grad():
             valid_running_loss = 0
@@ -131,7 +159,7 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
         accuracy.append(accuracy_running)
 
     # pass
-        print("epoch {} of {},\
+        logger.info("HPO: epoch {} of {},\
             training loss : {:.3f},\
             validation loss : {:.3f},\
             accuracy : {:.3f} ".format(epoch+1, epochs,
@@ -168,6 +196,7 @@ def net(num_classes):
 
     )
 
+    logger.info("HPO: Model training completed")
     return model
 
 def create_data_loaders(data_train, data_valid, data_test, batch_size):
@@ -176,6 +205,7 @@ def create_data_loaders(data_train, data_valid, data_test, batch_size):
     depending on whether you need to use data loaders or not
     '''
 
+    logger.info("HPO: creating data loaders")
     mean = [0.485, 0.456, 0.406]
     std  = [0.229, 0.224, 0.225]
 
@@ -195,12 +225,13 @@ def create_data_loaders(data_train, data_valid, data_test, batch_size):
     validset = ImageFolder(data_valid, transform=testing_transform)
     testset  = ImageFolder(data_test , transform=testing_transform)
 
-    logger.info("Batch Size {}".format( batch_size))
+    logger.info("HPO: Batch Size {}".format( batch_size))
     
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
     valid_loader = torch.utils.data.DataLoader(validset, batch_size=batch_size, shuffle=True)
     test_loader  = torch.utils.data.DataLoader(testset , batch_size=batch_size, shuffle=True)
 
+    logger.info('HPO: Data loaders created')
     return train_loader, valid_loader, test_loader
 
 
@@ -224,15 +255,16 @@ def main(args):
 
     model.to(device)
     
-    print(f"Running on Device {device}")
+    logger.info(f"HPO: Running on Device {device}")
 
-    logger.info(f'Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
-    logger.info(f'Data Paths: {args.data}')
+    logger.info(f'HPO: Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
+    logger.info(f'HPO: Data Paths: {args.data_path}')
 
     train_data = args.data_path + "/train/"
     test_data  = args.data_path + "/test/"
     valid_data = args.data_path + "/valid/"
     
+    logger.info('HPO: create the data loaders')
     train_loader, valid_loader, test_loader=create_data_loaders(train_data,  valid_data, test_data, args.batch_size)
 
 
@@ -249,25 +281,28 @@ def main(args):
 
     hook.register_loss(loss_criterion)
 
-    logger.info("Start Model Training")
-
-    
     '''
     TODO: Call the train function to start training your model
     Remember that you will need to set up a way to get training data from S3
     '''
+    logger.info('HPO: train the model')
     model=train(model, train_loader, valid_loader, loss_criterion, optimizer, args.epoch, device)
 
 
     '''
     TODO: Test the model to see its accuracy
     '''
+    logger.info("HPO: Test the Model")
     test(model, test_loader, criterion)
     
     '''
     TODO: Save the trained model
     '''
-    torch.save(model, path)
+    logger.info("HPO: Saving Model")
+    torch.save(model.state_dict(), os.path.join(args.model_dir, "model.pth")) # save the trained model to S3
+
+
+
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser()
