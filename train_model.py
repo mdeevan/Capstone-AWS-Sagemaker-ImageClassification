@@ -71,6 +71,10 @@ def test(model, test_dataloader, criterion, device=torch.device("cpu")):
 
         logger.info("HPO: model testing completed")
 
+
+
+
+
 def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epochs=2, device=torch.device("cpu")):
     '''
     TODO: Complete this function that can take a model and

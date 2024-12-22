@@ -9,7 +9,7 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 
-import argparse
+import argparse 
 import logging
 # import smdebug.Pytorch as smd
 
@@ -260,12 +260,12 @@ def main(args):
     logger.info(f'HPO: Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
     logger.info(f'HPO: Data Paths: {args.data_path}')
 
-    train_data = args.data_path + "/train/"
-    test_data  = args.data_path + "/test/"
-    valid_data = args.data_path + "/valid/"
+    # train_data = args.data_path + "/train/"
+    # test_data  = args.data_path + "/test/"
+    # valid_data = args.data_path + "/valid/"
     
     logger.info('HPO: create the data loaders')
-    train_loader, valid_loader, test_loader=create_data_loaders(train_data,  valid_data, test_data, args.batch_size)
+    train_loader, valid_loader, test_loader=create_data_loaders(data_train,  data_valid, data_test, args.batch_size)
 
 
     '''
@@ -311,18 +311,19 @@ if __name__=='__main__':
     '''
 #   https://github.com/aws/sagemaker-training-toolkit/blob/master/ENVIRONMENT_VARIABLES.md
 
-    parser.add_argument('--data-train', type=str,      default=os.environ['SM_CHANNEL_TRAINING'])
-    parser.add_argument('--data-test',  type=str,      default=os.environ['SM_CHANNEL_TESTING'])
-    # parser.add_argument('--data-valid', type=str,      default=os.environ['SM_CHANNEL_TRAINING'])
+    parser.add_argument('--data-train', type=str,      default=os.environ['SM_CHANNEL_TRAIN'])
+    parser.add_argument('--data-test',  type=str,      default=os.environ['SM_CHANNEL_TEST'])
+    parser.add_argument('--data-valid', type=str,      default=os.environ['SM_CHANNEL_VALID'])
     parser.add_argument('--model-dir',  type=str,      default=os.environ['SM_MODEL_DIR'])
-    parser.add_argument('--output-dir', type=str,      default=os.environ['SM_OUTPUT_DATA_DIR'])
-
-    parser.add_argument("--data-path",  type=int,      default=os.environ['SM_CHANNEL_TRAINING'],   metavar="N", help="S3 location of train/test/valid data")
-    parser.add_argument("--batch-size", type=int,      default=64,   metavar="N", help="input batch size for training (default: 64)")
-    parser.add_argument("--epochs",      type=int,      default=1,    metavar="N", help="number of epochs to train (default: 1)") 
+    parser.add_argument("--num_classes",type=int,      default=os.environ['NUM_CLASSES']) #default=10,   metavar="N", help="Number of classes for classification (default = 10)")
     parser.add_argument("--gpu",        type=str2bool, default=True, metavar="N", help="Train on GPU, (default = True)")
-    parser.add_argument("--lr",         type=float,    default=0.05, metavar="N", help="Learning rate (default = 0.5)")
-    parser.add_argument("--num_classes",type=int,      default=10,   metavar="N", help="Number of classes for classification (default = 10)")
+
+    # parser.add_argument('--output-dir', type=str,      default=os.environ['SM_OUTPUT_DATA_DIR'])
+    # parser.add_argument("--data-path",  type=int,      default=os.environ['SM_CHANNEL_TRAINING'],   metavar="N", help="S3 location of train/test/valid data")
+
+    parser.add_argument("--batch-size", type=int,      default=64,   metavar="N", help="input batch size for training (default: 64)")
+    parser.add_argument("--epochs",     type=int,      default=1,    metavar="N", help="number of epochs to train (default: 1)") 
+    parser.add_argument("--lr",         type=float,    default=0.05, metavar="N", help="Learning rate (default = 0.05)")
 
     args=parser.parse_args()
     
