@@ -28,11 +28,11 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
-def get_pretained_model_ResNet50():
-    weights = models.ResNet50_Weights()
-    model = models.resnet50(weights=weights)
+# def get_pretained_model_ResNet50():
+#     weights = models.ResNet50_Weights()
+#     model = models.resnet50(weights=weights)
 
-    return model
+#     return model
 
 
 def test(model, test_dataloader, criterion, device=torch.device("cpu")):
@@ -43,7 +43,8 @@ def test(model, test_dataloader, criterion, device=torch.device("cpu")):
     '''
 
     logger.info('HPO: model test starting')
-    hook.set_mode(smd.modes.EVAL) # assign the debugger hook
+    # hook = get_hook(create_if_not_exists=True)
+    # hook.set_mode(smd.modes.EVAL) # assign the debugger hook
 
     model.eval()
     with torch.no_grad():
@@ -51,8 +52,8 @@ def test(model, test_dataloader, criterion, device=torch.device("cpu")):
         accuracy_running = 0
 
         for data, target in test_dataloader:
-            data   = data.to_device(device)
-            target = data.to_device(device)
+            data   = data.to(device)
+            target = data.to(device)
 
             pred = model(data)
             loss = criterion(pred, target)
@@ -82,21 +83,21 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
           Remember to include any debugging/profiling hooks that you might need
     '''
 
-    hook = get_hook(create_if_not_exists=True)
+    # hook = get_hook(create_if_not_exists=True)
 
     train_loss = []
     valid_loss = []
     accuracy   = []
     prev_accuracy = 0
 
-    device = torch.device("cuda" if (torch.cuda.is_available() & gpu) else "cpu")
+    device = torch.device("cuda" if (torch.cuda.is_available() & args.gpu) else "cpu")
         
     logger.info('HPO: Training started on device {}'.format(device))
 
-    if hook:
-        hook.register_loss(optimizer)
+    # if hook:
+    #     hook.register_loss(optimizer)
   
-    for e in range(epochs):
+    for epoch in range(epochs):
 
         train_running_loss = 0
         valid_running_loss = 0
@@ -104,13 +105,13 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
         
         # hook.set_mode(smd.modes.TRAIN) # set debugging hook
 
-        if hook:
-            hook.set_mode(smd.modes.TRAIN) # assign the debugger hook
+        # if hook:
+        #     hook.set_mode(smd.modes.TRAIN) # assign the debugger hook
 
         model.train()
         for data, target in train_dataloader:
-            data   = data.to_device(device)
-            target = target.to_device(device)
+            data   = data.to(device)
+            target = target.to(device)
 
             optimizer.zero_grad()
 
@@ -130,16 +131,16 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
 
             # print("epoch : {}, total loss : {}, accuracy :{}%".format(e, total_loss, accuracy))
             
-        if hook:
-            hook.set_mode(smd.modes.EVAL) # assign the debugger hook
+        # if hook:
+        #     hook.set_mode(smd.modes.EVAL) # assign the debugger hook
 
         model.eval()
         with torch.no_grad():
             valid_running_loss = 0
 
             for data, target in valid_dataloader:
-                data   = data.to_device(device)
-                target = data.to_device(device)
+                data   = data.to(device)
+                target = data.to(device)
 
                 pred = model(data)
                 loss = criterion(pred, target)
@@ -183,22 +184,23 @@ def net(num_classes):
     '''
 
     # model = torchvision.models.detection.ResNet50_Weights()
-    model = get_pretained_model_ResNet50
+    # model = get_pretained_model_ResNet50()
 
-    for params in model.parameters:
+    model = models.resnet50(pretrained=True)
+    
+    for params in model.parameters():
         params.requires_grad = False
 
-    num_features = model.fc.in_features()
+    num_features = model.fc.in_features
 
     model.fc = nn.Sequential(
-                   nn.ReLU(nn.Linear(num_features, 1024)),
-                   nn.ReLU(nn.Linear(1024        , 512)),
-                   nn.ReLU(nn.Linear(512         , 256)),
-                   nn.ReLU(nn.Linear(256         , num_classes),
-                   F.log_softmax(dim=1)
-                   )
+                    nn.ReLU(nn.Linear(num_features, 1024)),
+                    nn.ReLU(nn.Linear(1024        , 512)),
+                    nn.ReLU(nn.Linear(512         , 256)),
+                    nn.ReLU(nn.Linear(256         , 133)),
+                    nn.Softmax(dim=1)
+                    )
 
-    )
 
     logger.info("HPO: Model training completed")
     return model
@@ -225,9 +227,9 @@ def create_data_loaders(data_train, data_valid, data_test, batch_size):
         transforms.Normalize(mean=mean, std=std)])
 
 
-    trainset = ImageFolder(data_train, transform=training_transform)
-    validset = ImageFolder(data_valid, transform=testing_transform)
-    testset  = ImageFolder(data_test , transform=testing_transform)
+    trainset = torchvision.datasets.ImageFolder(data_train, transform=training_transform)
+    validset = torchvision.datasets.ImageFolder(data_valid, transform=testing_transform)
+    testset  = torchvision.datasets.ImageFolder(data_test , transform=testing_transform)
 
     logger.info("HPO: Batch Size {}".format( batch_size))
     
@@ -253,7 +255,7 @@ def main(args):
 
     # net = models.__dict__[opt.model](pretrained=True)
 
-    device = torch.device("gpu" if (torch.cuda.is_available() & agrs.gpu) else "cpu")
+    device = torch.device("gpu" if (torch.cuda.is_available() & args.gpu) else "cpu")
 
     # if (args.gpu):
     #     device = torch.device("cuda")
@@ -265,14 +267,14 @@ def main(args):
     logger.info(f"HPO: Running on Device {device}")
 
     logger.info(f'HPO: Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
-    logger.info(f'HPO: Data Paths: {args.data_path}')
 
+    # logger.info(f'HPO: Data Paths: {args.data_path}')
     # train_data = args.data_path + "/train/"
     # test_data  = args.data_path + "/test/"
     # valid_data = args.data_path + "/valid/"
     
     logger.info('HPO: create the data loaders')
-    train_loader, valid_loader, test_loader=create_data_loaders(data_train,  data_valid, data_test, args.batch_size)
+    train_loader, valid_loader, test_loader=create_data_loaders(args.data_train,  args.data_valid,args.data_test, args.batch_size )
 
 
     '''
@@ -286,14 +288,16 @@ def main(args):
 
     optimizer = optim.Adam(model.fc.parameters(), lr=args.lr) #using adam optimizer
 
-    hook.register_loss(loss_criterion)
+    # hook = get_hook(create_if_not_exists=True)
+    
+    # hook.register_loss(loss_criterion)
 
     '''
     TODO: Call the train function to start training your model
     Remember that you will need to set up a way to get training data from S3
     '''
     logger.info('HPO: train the model')
-    model=train(model, train_loader, valid_loader, loss_criterion, optimizer, args.epoch, device)
+    model=train(model, train_loader, valid_loader, loss_criterion, optimizer, args.epochs, device)
 
 
     '''
