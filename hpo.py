@@ -11,6 +11,10 @@ import torch.nn.functional as F
 
 import argparse 
 import logging
+import sys
+import os
+import smdebug
+
 # import smdebug.Pytorch as smd
 
 from smdebug import modes
@@ -239,6 +243,9 @@ def create_data_loaders(data_train, data_valid, data_test, batch_size):
 
 def main(args):
 
+
+    logger.info("arguments {}".format(args))
+
     '''
     TODO: Initialize a model by calling the net function
     '''
@@ -313,17 +320,19 @@ if __name__=='__main__':
 
     parser.add_argument('--data-train', type=str,      default=os.environ['SM_CHANNEL_TRAIN'])
     parser.add_argument('--data-test',  type=str,      default=os.environ['SM_CHANNEL_TEST'])
-    parser.add_argument('--data-valid', type=str,      default=os.environ['SM_CHANNEL_VALID'])
+    parser.add_argument('--data-valid', type=str,      default=os.environ['SM_CHANNEL_VAL'])
     parser.add_argument('--model-dir',  type=str,      default=os.environ['SM_MODEL_DIR'])
-    parser.add_argument("--num_classes",type=int,      default=os.environ['NUM_CLASSES']) #default=10,   metavar="N", help="Number of classes for classification (default = 10)")
-    parser.add_argument("--gpu",        type=str2bool, default=True, metavar="N", help="Train on GPU, (default = True)")
+    # parser.add_argument("--num_classes",type=int,      default=os.environ['NUM_CLASSES']) #default=10,   metavar="N", help="Number of classes for classification (default = 10)")
+    # parser.add_argument("--gpu",        type=str2bool, default=True, metavar="N", help="Train on GPU, (default = True)")
 
     # parser.add_argument('--output-dir', type=str,      default=os.environ['SM_OUTPUT_DATA_DIR'])
     # parser.add_argument("--data-path",  type=int,      default=os.environ['SM_CHANNEL_TRAINING'],   metavar="N", help="S3 location of train/test/valid data")
 
-    parser.add_argument("--batch-size", type=int,      default=64,   metavar="N", help="input batch size for training (default: 64)")
+    parser.add_argument("--batch-size", type=int,      default=64,   metavar="N", help="input batch size for training (default: 64)",)
     parser.add_argument("--epochs",     type=int,      default=1,    metavar="N", help="number of epochs to train (default: 1)") 
     parser.add_argument("--lr",         type=float,    default=0.05, metavar="N", help="Learning rate (default = 0.05)")
+    parser.add_argument("--num-classes",type=int,      default=133,  metavar="N", help="Number of classes")
+    parser.add_argument("--gpu",        type=bool,     default=True, metavar="N", help="gpu training, default = True")
 
     args=parser.parse_args()
     
