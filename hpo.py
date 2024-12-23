@@ -28,6 +28,10 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+
 # def get_pretained_model_ResNet50():
 #     weights = models.ResNet50_Weights()
 #     model = models.resnet50(weights=weights)
@@ -53,7 +57,7 @@ def test(model, test_dataloader, criterion, device=torch.device("cpu")):
 
         for data, target in test_dataloader:
             data   = data.to(device)
-            target = data.to(device)
+            target = target.to(device)
 
             pred = model(data)
             loss = criterion(pred, target)
@@ -90,7 +94,7 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
     accuracy   = []
     prev_accuracy = 0
 
-    device = torch.device("cuda" if (torch.cuda.is_available() & args.gpu) else "cpu")
+    # device = torch.device("cuda" if (torch.cuda.is_available() & args.gpu) else "cpu")
         
     logger.info('HPO: Training started on device {}'.format(device))
 
@@ -140,7 +144,7 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
 
             for data, target in valid_dataloader:
                 data   = data.to(device)
-                target = data.to(device)
+                target = target.to(device)
 
                 pred = model(data)
                 loss = criterion(pred, target)
@@ -174,8 +178,7 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
                                             ))
 
 
-    # return of losses and accuracy for graph representation, if desired
-    return train_loss, valid_loss, accuracy
+    return model   #, train_loss, valid_loss, accuracy
 
 def net(num_classes):
     '''
@@ -194,15 +197,18 @@ def net(num_classes):
     num_features = model.fc.in_features
 
     model.fc = nn.Sequential(
-                    nn.ReLU(nn.Linear(num_features, 1024)),
-                    nn.ReLU(nn.Linear(1024        , 512)),
-                    nn.ReLU(nn.Linear(512         , 256)),
-                    nn.ReLU(nn.Linear(256         , 133)),
+                    nn.Linear(num_features, 1024),
+                    nn.ReLU(),
+                    nn.Linear(1024        , 512),
+                    nn.ReLU(),
+                    nn.Linear(512         , 256),
+                    nn.ReLU(),
+                    nn.Linear(256         , num_classes),
                     nn.Softmax(dim=1)
                     )
 
 
-    logger.info("HPO: Model training completed")
+    logger.info("HPO: Model creation completed")
     return model
 
 def create_data_loaders(data_train, data_valid, data_test, batch_size):
@@ -255,7 +261,7 @@ def main(args):
 
     # net = models.__dict__[opt.model](pretrained=True)
 
-    device = torch.device("gpu" if (torch.cuda.is_available() & args.gpu) else "cpu")
+    device = torch.device("cuda" if (torch.cuda.is_available() & args.gpu) else "cpu")
 
     # if (args.gpu):
     #     device = torch.device("cuda")
@@ -297,14 +303,14 @@ def main(args):
     Remember that you will need to set up a way to get training data from S3
     '''
     logger.info('HPO: train the model')
-    model=train(model, train_loader, valid_loader, loss_criterion, optimizer, args.epochs, device)
+    model=    train(model, train_loader, valid_loader, loss_criterion, optimizer, args.epochs, device)
 
 
     '''
     TODO: Test the model to see its accuracy
     '''
     logger.info("HPO: Test the Model")
-    test(model, test_loader, criterion)
+    test(model, test_loader, loss_criterion, device)
     
     '''
     TODO: Save the trained model
