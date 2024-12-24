@@ -32,13 +32,6 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-# def get_pretained_model_ResNet50():
-#     weights = models.ResNet50_Weights()
-#     model = models.resnet50(weights=weights)
-
-#     return model
-
-
 def test(model, test_dataloader, criterion, device=torch.device("cpu")):
     '''
     TODO: Complete this function that can take a model and a 
@@ -47,8 +40,6 @@ def test(model, test_dataloader, criterion, device=torch.device("cpu")):
     '''
 
     logger.info('HPO: model test starting')
-    # hook = get_hook(create_if_not_exists=True)
-    # hook.set_mode(smd.modes.EVAL) # assign the debugger hook
 
     model.eval()
     with torch.no_grad():
@@ -73,7 +64,7 @@ def test(model, test_dataloader, criterion, device=torch.device("cpu")):
         accuracy  = accuracy_running  / len(test_dataloader)
 
         logger.info("HPO: Test loss : {:.3f},\
-            accuracy : {:.3f} ".format(test_loss,
+            Test set: Accuracy: {:.3f} ".format(test_loss,
                                         accuracy
                                         ))
 
@@ -87,19 +78,13 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
           Remember to include any debugging/profiling hooks that you might need
     '''
 
-    # hook = get_hook(create_if_not_exists=True)
-
     train_loss = []
     valid_loss = []
     accuracy   = []
     prev_accuracy = 0
 
-    # device = torch.device("cuda" if (torch.cuda.is_available() & args.gpu) else "cpu")
-        
     logger.info('HPO: Training started on device {}'.format(device))
 
-    # if hook:
-    #     hook.register_loss(optimizer)
   
     for epoch in range(epochs):
 
@@ -107,11 +92,6 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
         valid_running_loss = 0
         accuracy_running   = 0
         
-        # hook.set_mode(smd.modes.TRAIN) # set debugging hook
-
-        # if hook:
-        #     hook.set_mode(smd.modes.TRAIN) # assign the debugger hook
-
         model.train()
         for data, target in train_dataloader:
             data   = data.to(device)
@@ -125,18 +105,6 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
         
             loss.backward()
             optimizer.step()
-
-            # pred = pred.argmax(dim=1, keepdim=True)
-
-            # correct += pred.eq(target.view_as(pred)).sum().item()
-
-            # total_loss = running_loss / len(train_loader.dataset)
-            # accuracy = correct / len(train_loader.dataset)
-
-            # print("epoch : {}, total loss : {}, accuracy :{}%".format(e, total_loss, accuracy))
-            
-        # if hook:
-        #     hook.set_mode(smd.modes.EVAL) # assign the debugger hook
 
         model.eval()
         with torch.no_grad():
@@ -167,7 +135,6 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
         valid_loss.append(valid_running_loss)
         accuracy.append(accuracy_running)
 
-    # pass
         logger.info("HPO: epoch {} of {},\
             training loss : {:.3f},\
             validation loss : {:.3f},\
@@ -178,16 +145,13 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, epoch
                                             ))
 
 
-    return model   #, train_loss, valid_loss, accuracy
+    return model    
 
 def net(num_classes):
     '''
     TODO: Complete this function that initializes your model
           Remember to use a pretrained model
     '''
-
-    # model = torchvision.models.detection.ResNet50_Weights()
-    # model = get_pretained_model_ResNet50()
 
     model = models.resnet50(pretrained=True)
     
@@ -201,9 +165,7 @@ def net(num_classes):
                     nn.ReLU(),
                     nn.Linear(1024        , 512),
                     nn.ReLU(),
-                    nn.Linear(512         , 256),
-                    nn.ReLU(),
-                    nn.Linear(256         , num_classes),
+                    nn.Linear(512         , num_classes),
                     nn.Softmax(dim=1)
                     )
 
@@ -247,38 +209,24 @@ def create_data_loaders(data_train, data_valid, data_test, batch_size):
     return train_loader, valid_loader, test_loader
 
 
-    # pass
-
 def main(args):
 
 
     logger.info("arguments {}".format(args))
+    logger.info(f'HPO: Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
 
     '''
     TODO: Initialize a model by calling the net function
     '''
-    model=net(args.num_classes)
-
-    # net = models.__dict__[opt.model](pretrained=True)
 
     device = torch.device("cuda" if (torch.cuda.is_available() & args.gpu) else "cpu")
-
-    # if (args.gpu):
-    #     device = torch.device("cuda")
-    # else:
-    #     device = torch.device("cpu")
-
-    model.to(device)
-    
     logger.info(f"HPO: Running on Device {device}")
 
-    logger.info(f'HPO: Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
+    logger.info(f"HPO: Retrieving model")
+    model=net(args.num_classes)
+    model.to(device)
 
-    # logger.info(f'HPO: Data Paths: {args.data_path}')
-    # train_data = args.data_path + "/train/"
-    # test_data  = args.data_path + "/test/"
-    # valid_data = args.data_path + "/valid/"
-    
+
     logger.info('HPO: create the data loaders')
     train_loader, valid_loader, test_loader=create_data_loaders(args.data_train,  args.data_valid,args.data_test, args.batch_size )
 
@@ -286,17 +234,10 @@ def main(args):
     '''
     TODO: Create your loss and optimizer
     '''
-    # loss_criterion = None
-    # optimizer = None
 
-    # loss_criterion = nn.CrossEntropyLoss() # using cross Entropy loss function
     loss_criterion = nn.NLLLoss() # using negative log likelihood loss 
 
     optimizer = optim.Adam(model.fc.parameters(), lr=args.lr) #using adam optimizer
-
-    # hook = get_hook(create_if_not_exists=True)
-    
-    # hook.register_loss(loss_criterion)
 
     '''
     TODO: Call the train function to start training your model
@@ -318,6 +259,7 @@ def main(args):
     logger.info("HPO: Saving Model")
     torch.save(model.state_dict(), os.path.join(args.model_dir, "model.pth")) # save the trained model to S3
 
+    logger.info("HPO: Script competed, exiting")
 
 
 
