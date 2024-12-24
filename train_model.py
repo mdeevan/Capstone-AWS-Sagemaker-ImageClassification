@@ -151,7 +151,7 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, hook,
         valid_loss.append(valid_running_loss)
         accuracy.append(accuracy_running)
 
-        logger.info("HPO: epoch {} of {},\
+        logger.info("model training: epoch {} of {},\
             training loss : {:.3f},\
             validation loss : {:.3f},\
             accuracy : {:.3f} ".format(epoch+1, epochs,
@@ -172,7 +172,9 @@ def net(num_classes):
     # model = torchvision.models.detection.ResNet50_Weights()
     # model = get_pretained_model_ResNet50()
 
-    model = models.resnet50(pretrained=True)
+
+    # model = models.resnet50(pretrained=True)
+    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
     
     for params in model.parameters():
         params.requires_grad = False
@@ -180,18 +182,24 @@ def net(num_classes):
     num_features = model.fc.in_features
 
     model.fc = nn.Sequential(
-                    nn.Linear(num_features, 1024),
+                    nn.Linear(num_features, 512),
                     nn.ReLU(),
-                    nn.Linear(1024        , 512),
-                    nn.ReLU(),
-                    nn.Linear(512         , 256),
-                    nn.ReLU(),
-                    nn.Linear(256         , num_classes),
+                    nn.Linear(512         , num_classes),
                     nn.Softmax(dim=1)
                     )
+    # model.fc = nn.Sequential(
+    #                 nn.Linear(num_features, 1024),
+    #                 nn.ReLU(),
+    #                 nn.Linear(1024        , 512),
+    #                 nn.ReLU(),
+    #                 nn.Linear(512         , 256),
+    #                 nn.ReLU(),
+    #                 nn.Linear(256         , num_classes),
+    #                 nn.Softmax(dim=1)
+    #                 )
 
 
-    logger.info("HPO: Model creation completed")
+    logger.info("model training: Model creation completed")
     return model
 
 def create_data_loaders(data_train, data_valid, data_test, batch_size):
@@ -200,7 +208,7 @@ def create_data_loaders(data_train, data_valid, data_test, batch_size):
     depending on whether you need to use data loaders or not
     '''
 
-    logger.info("HPO: creating data loaders")
+    logger.info("model training: creating data loaders")
     mean = [0.485, 0.456, 0.406]
     std  = [0.229, 0.224, 0.225]
 
@@ -220,13 +228,13 @@ def create_data_loaders(data_train, data_valid, data_test, batch_size):
     validset = torchvision.datasets.ImageFolder(data_valid, transform=testing_transform)
     testset  = torchvision.datasets.ImageFolder(data_test , transform=testing_transform)
 
-    logger.info("HPO: Batch Size {}".format( batch_size))
+    logger.info("model training: Batch Size {}".format( batch_size))
     
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
     valid_loader = torch.utils.data.DataLoader(validset, batch_size=batch_size, shuffle=True)
     test_loader  = torch.utils.data.DataLoader(testset , batch_size=batch_size, shuffle=True)
 
-    logger.info('HPO: Data loaders created')
+    logger.info('model training: Data loaders created')
     return train_loader, valid_loader, test_loader
 
 
@@ -234,14 +242,14 @@ def create_data_loaders(data_train, data_valid, data_test, batch_size):
 
 def main(args):
     logger.info("arguments {}".format(args))
-    logger.info(f'HPO: Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
+    logger.info(f'model training: Hyperparameters are LR: {args.lr}, Batch Size: {args.batch_size}')
 
     '''
     TODO: Initialize a model by calling the net function
     '''
 
     device = torch.device("cuda" if (torch.cuda.is_available() & args.gpu) else "cpu")
-    logger.info(f"HPO: Running on Device {device}")
+    logger.info(f"model training: Running on Device {device}")
 
     logger.info(f"model training: Retrieving model")
     model=net(args.num_classes)
@@ -306,11 +314,6 @@ if __name__=='__main__':
     parser.add_argument('--data-valid', type=str,      default=os.environ['SM_CHANNEL_VAL'])
     parser.add_argument('--model-dir',  type=str,      default=os.environ['SM_MODEL_DIR'])
 
-    parser.add_argument('--data-train', type=str,      default=os.environ['SM_CHANNEL_TRAIN'])
-    parser.add_argument('--data-test',  type=str,      default=os.environ['SM_CHANNEL_TEST'])
-    parser.add_argument('--data-valid', type=str,      default=os.environ['SM_CHANNEL_VAL'])
-    parser.add_argument('--model-dir',  type=str,      default=os.environ['SM_MODEL_DIR'])
-
 
     # parser.add_argument("--num_classes",type=int,      default=os.environ['NUM_CLASSES']) #default=10,   metavar="N", help="Number of classes for classification (default = 10)")
     # parser.add_argument("--gpu",        type=str2bool, default=True, metavar="N", help="Train on GPU, (default = True)")
@@ -323,6 +326,8 @@ if __name__=='__main__':
     parser.add_argument("--lr",         type=float,    default=0.05, metavar="N", help="Learning rate (default = 0.05)")
     parser.add_argument("--num-classes",type=int,      default=133,  metavar="N", help="Number of classes")
     parser.add_argument("--gpu",        type=bool,     default=True, metavar="N", help="gpu training, default = True")
+
+
 
     args=parser.parse_args()
     
