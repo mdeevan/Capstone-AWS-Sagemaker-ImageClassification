@@ -174,7 +174,8 @@ def net(num_classes):
 
 
     # model = models.resnet50(pretrained=True)
-    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    # model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
     
     for params in model.parameters():
         params.requires_grad = False
