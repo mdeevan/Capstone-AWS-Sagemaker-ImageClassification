@@ -83,8 +83,9 @@ def predict_fn(input_data, model):
     return predictions
 
 
-# def output_fn(predictions, content_type):
-#     assert content_type == 'application/json'
+def output_fn(predictions, content_type):
+    
+    assert content_type == 'application/json'
 
-#     res = predictions.cpu().numpy().tolist()
-#     return json.dumps(res)
+    res = predictions.cpu().numpy().tolist()
+    return json.dumps(res)

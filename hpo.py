@@ -13,13 +13,13 @@ import argparse
 import logging
 import sys
 import os
-import smdebug
+# import smdebug
 
 # import smdebug.Pytorch as smd
 
-from smdebug import modes
-from smdebug.profiler.utils import str2bool
-from smdebug.pytorch import get_hook
+# from smdebug import modes
+# from smdebug.profiler.utils import str2bool
+# from smdebug.pytorch import get_hook
 
 
 
@@ -154,7 +154,9 @@ def net(num_classes):
     '''
     # model = models.resnet50(pretrained=True)
     # model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-    model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    # model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+
+    model = models.resnet18(pretrained=True)
     
     for params in model.parameters():
         params.requires_grad = False
@@ -266,7 +268,7 @@ def main(args):
     logger.info("HPO: Saving Model")
     torch.save(model.state_dict(), os.path.join(args.model_dir, "model.pth")) # save the trained model to S3
 
-    logger.info("HPO: Script competed, exiting")
+    logger.info("HPO: Script completed, exiting")
 
 
 
