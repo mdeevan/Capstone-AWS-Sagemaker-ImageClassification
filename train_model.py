@@ -14,6 +14,7 @@ import logging
 import sys
 import os
 import smdebug
+import boto3
 
 import smdebug.pytorch as smd
 
@@ -163,7 +164,14 @@ def train(model, train_dataloader, valid_dataloader, criterion, optimizer, hook,
 
     return model   #, train_loss, valid_loss, accuracy
 
-def net(num_classes):
+import tarfile
+
+def extract_tar_gz(tar_gz_path, extract_path="."):
+    """Extracts a .tar.gz file to the specified path."""
+    with tarfile.open(tar_gz_path, "r:gz") as tar:
+        tar.extractall(extract_path)
+
+def net(num_classes, model_data=""):
     '''
     TODO: Complete this function that initializes your model
           Remember to use a pretrained model
@@ -173,20 +181,25 @@ def net(num_classes):
     # model = get_pretained_model_ResNet50()
 
 
-    # model = models.resnet50(pretrained=True)
+    model = models.resnet50(pretrained=True)
     # model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
     # model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-    model = models.resnet18(pretrained=True)
-    
+    # model = models.resnet18(pretrained=True)
+
+
     for params in model.parameters():
         params.requires_grad = False
 
     num_features = model.fc.in_features
 
+    # model.fc = nn.Sequential(
+    #                 nn.Linear(num_features, 512),
+    #                 nn.ReLU(),
+    #                 nn.Linear(512         , num_classes),
+    #                 nn.Softmax(dim=1)
+    #                 )
     model.fc = nn.Sequential(
-                    nn.Linear(num_features, 512),
-                    nn.ReLU(),
-                    nn.Linear(512         , num_classes),
+                    nn.Linear(num_features         , num_classes),
                     nn.Softmax(dim=1)
                     )
     # model.fc = nn.Sequential(
@@ -200,6 +213,28 @@ def net(num_classes):
     #                 nn.Softmax(dim=1)
     #                 )
 
+    logger.info(f"Inside net function, model data {model_data}")
+
+    if (model_data != ""):
+        # model = sagemaker.estimator.Estimator.attach(best_training_job_name)
+
+        # Split the S3 path to get the bucket and key
+        s3 = boto3.client('s3')
+
+        # Download the model artifact
+        bucket1, key1 = model_data.replace('s3://', '').split('/', 1)
+
+        print(bucket1, key1)
+        s3.download_file(bucket1, key1, 'best_model.tar.gz')
+
+        extract_tar_gz("best_model.tar.gz")
+
+        # model.load_state_dict(torch.load('best_model.tar.gz', weights_only=False))
+        model.load_state_dict(torch.load('model.pth' ))
+
+        logger.info("model updated with the best estimator model weights")
+
+        # model.load_state_dict(torch.load('best_model.tar.gz'))
 
     logger.info("model training: Model creation completed")
     return model
@@ -254,7 +289,8 @@ def main(args):
     logger.info(f"model training: Running on Device {device}")
 
     logger.info(f"model training: Retrieving model")
-    model=net(args.num_classes)
+
+    model=net(args.num_classes, args.model_data )
     model.to(device)
 
     logger.info(f"model training: setting up hook")
@@ -294,6 +330,7 @@ def main(args):
     test(model, test_loader, loss_criterion, hook, device)
     
 
+
     '''
     TODO: Save the trained model
     '''
@@ -323,14 +360,19 @@ if __name__=='__main__':
     # parser.add_argument('--output-dir', type=str,      default=os.environ['SM_OUTPUT_DATA_DIR'])
     # parser.add_argument("--data-path",  type=int,      default=os.environ['SM_CHANNEL_TRAINING'],   metavar="N", help="S3 location of train/test/valid data")
 
-    parser.add_argument("--batch-size", type=int,      default=64,   metavar="N", help="input batch size for training (default: 64)",)
-    parser.add_argument("--epochs",     type=int,      default=1,    metavar="N", help="number of epochs to train (default: 1)") 
-    parser.add_argument("--lr",         type=float,    default=0.05, metavar="N", help="Learning rate (default = 0.05)")
+    parser.add_argument("--batch-size",    type=int,      default=64,   metavar="N", help="input batch size for training (default: 64)",)
+    parser.add_argument("--epochs",        type=int,      default=1,    metavar="N", help="number of epochs to train (default: 1)") 
+    parser.add_argument("--lr",            type=float,    default=0.05, metavar="N", help="Learning rate (default = 0.05)")
+    parser.add_argument("--model-data",    type=str,      default="",   metavar="N", help="Best job resulting from the hyperparameter tuning")
+
     parser.add_argument("--num-classes",type=int,      default=133,  metavar="N", help="Number of classes")
     parser.add_argument("--gpu",        type=bool,     default=True, metavar="N", help="gpu training, default = True")
 
 
 
     args=parser.parse_args()
+
+    logger.info(f"argumnets : {args}")
+    print("arguments: {args}")
     
     main(args)
