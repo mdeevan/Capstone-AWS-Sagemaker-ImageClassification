@@ -5,3 +5,4 @@ dogImagesFew/*
 images/*
 *.tar.gz
 *.pth
+docker/*

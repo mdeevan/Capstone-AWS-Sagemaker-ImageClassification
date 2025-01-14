@@ -11,6 +11,7 @@ from PIL import Image
 import logging
 import sys
 import os
+import numpy as np
 
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,6 @@ def output_fn(predictions, content_type):
     assert content_type == 'application/json'
 
     res = predictions.cpu().numpy().tolist()
-    res = np.argmax(np.asarray(res))
+    res = np.argmax(np.asarray(res)).tolist()
     
     return json.dumps(res)
