@@ -20,19 +20,18 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 
 def Net(num_classes):
     print("inference: model creation")
-    model = models.resnet18(pretrained=False)
+    model = models.resnet50(pretrained=False)
 
     for param in model.parameters():
         param.requires_grad = False   
 
     num_features = model.fc.in_features
     model.fc = nn.Sequential(
-                    nn.Linear(num_features, 512),
-                    nn.ReLU(),
-                    nn.Linear(512         , num_classes),
+                    nn.Linear(num_features, num_classes),
                     nn.Softmax(dim=1)
                     )
                     
+
     print("inference: model created")
     return model
 
@@ -88,4 +87,6 @@ def output_fn(predictions, content_type):
     assert content_type == 'application/json'
 
     res = predictions.cpu().numpy().tolist()
+    res = np.argmax(np.asarray(res))
+    
     return json.dumps(res)

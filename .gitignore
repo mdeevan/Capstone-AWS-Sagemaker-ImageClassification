@@ -2,3 +2,6 @@ dogImages/*
 dogImages.zip
 temp.csv
 dogImagesFew/*
+images/*
+*.tar.gz
+*.pth

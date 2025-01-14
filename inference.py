@@ -27,7 +27,6 @@ app = Flask(__name__)
 
 def Net(num_classes):
     print("inference: model creation")
-
     model = models.resnet50(pretrained=False)
 
     for param in model.parameters():
@@ -39,6 +38,7 @@ def Net(num_classes):
                     nn.Softmax(dim=1)
                     )
                     
+
     print("inference: model created")
     return model
 
@@ -63,21 +63,40 @@ def model_fn(model_dir):
 
 
 def input_fn(request_body, request_content_type):
-    logger.info(f'Inference: input function with content type :{request_content_type} \n and request {request_body}')
+    # logger.info(f'Inference: input function with content type :{request_content_type} \n and request {request_body}')
     # assert request_content_type=='image/jpeg'
-
-    if request_content_type == 'application/json':
-        # Deserialize the JSON input
-        image_data = request_body.get('image')  # Expecting base64 encoded image
-        image = Image.open(io.BytesIO(base64.b64decode(image_data)))
-
-        return image
-        # return transform(image).unsqueeze(0)  # Add batch dimension
-    else:
-        raise ValueError("Unsupported content type: {}".format(request_content_type))
+    # return Image.open(io.BytesIO(request_body))
 
 
-    return Image.open(io.BytesIO(request_body))
+    logger.info('Deserializing the input data.')
+    
+    # process an image uploaded to the endpoint
+    
+    #if content_type == JPEG_CONTENT_TYPE: return io.BytesIO(request_body)
+    logger.debug(f'Request body CONTENT-TYPE is: {content_type}')
+    logger.debug(f'Request body TYPE is: {type(request_body)}')
+    
+    if content_type == JPEG_CONTENT_TYPE: 
+        return Image.open(io.BytesIO(request_body))
+    
+    logger.debug('Loaded JPEG content')
+    
+    # process a URL submitted to the endpoint
+    
+    if content_type == JSON_CONTENT_TYPE:
+        #img_request = requests.get(url)
+        logger.debug(f'Request body is: {request_body}')
+
+        request = json.loads(request_body)
+
+        logger.debug(f'Loaded JSON object: {request}')
+
+        url = request['url']
+        img_content = requests.get(url).content
+
+        return Image.open(io.BytesIO(img_content))
+    
+    raise Exception('Requested unsupported ContentType in content_type: {}'.format(content_type))
 
 
 def predict_fn(input_data, model):
@@ -106,8 +125,8 @@ def output_fn(predictions, content_type):
     assert content_type == 'application/json'
 
     res = predictions.cpu().numpy().tolist()
-    res = np.argmax(np.asarray(inference))
-
+    res = np.argmax(np.asarray(res))
+    
     return json.dumps(res)
 
 
