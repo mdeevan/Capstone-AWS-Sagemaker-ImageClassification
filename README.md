@@ -64,24 +64,27 @@ metric_definitions = [{"Name": "Accuracy", "Regex": "Test set: Accuracy: ([0-9\\
 
 
 ## Debugging and Profiling
-**TODO**: Give an overview of how you performed model debugging and profiling in Sagemaker
+Give an overview of how you performed model debugging and profiling in Sagemaker
 
 ### Results
-**TODO**: What are the results/insights did you get by profiling/debugging your model?
+What are the results/insights did you get by profiling/debugging your model?
+![Debug output](./screenshots/train%20vs%20eval.png)
 
-**TODO** Remember to provide the profiler html/pdf file in your submission.
 
+Remember to provide the profiler html/pdf file in your submission.
+
+[link to the profile output](./ProfilerReport/profiler-output/profiler-report.pdf)
 
 ## Model Deployment
-**TODO**: Give an overview of the deployed model and instructions on how to query the endpoint with a sample input.
+Give an overview of the deployed model and instructions on how to query the endpoint with a sample input.
 
-**TODO** Remember to provide a screenshot of the deployed active endpoint in Sagemaker.
+Remember to provide a screenshot of the deployed active endpoint in Sagemaker.
 ![Deployed endpoint](./screenshots/inference%20Endpoints%20-%20SageMaker%20Studio.png)
 ![Deployed endpoint summary](./screenshots/inference%20endpoint%20-%20summary.png)
 
 
 ## Standout Suggestions
-**TODO (Optional):** This is where you can provide information about any standout suggestions that you have attempted.
+This is where you can provide information about any standout suggestions that you have attempted.
 
 #### Batch Transformation
 
